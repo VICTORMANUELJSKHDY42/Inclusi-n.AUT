@@ -1,0 +1,81 @@
+import { Canister, Principal, Record, StableBTreeMap, Vec, bool, query, text, update } from 'azle';
+
+// Definición del registro para User
+const User = Record({
+    id: Principal,
+    username: text,
+    tipoAu: text,
+    pregno: text,
+    pregunta: text,
+    respuesta: text,
+    empresa: text,
+    carrera: text,
+    coincidencia: text,
+    aptitudes: text ,
+    
+});
+const GetAllFilResponse = Record({
+
+    username:text, 
+    tipoAu: text
+
+})
+const GetAllAptitudResponse = Record({
+
+    username:text, 
+    aptitudes:text
+
+})
+// Tipo User basado en la definición del registro
+type User = typeof User.tsType;
+
+// Mapa estable para almacenar usuarios
+const usuarios = StableBTreeMap<Principal, User>(0);
+
+// Exportar el Canister con las funciones actualizadas
+export default Canister({
+    // Función para crear un nuevo usuario
+    create: update([text, text, text, text, text, text, text, Vec(text)], bool, (username, tipoAu, pregno, pregunta, respuesta, empresa, carrera, aptitudes) => {
+        const id = generatePrincipal();
+        const coincidencia = identificarCoincidencias(tipoAu);
+        const user: User = { id, username, tipoAu, pregno, pregunta, respuesta, empresa, carrera, coincidencia, aptitudes };
+
+        usuarios.insert(id, user);
+
+        return true;
+    }),
+    // Función para obtener todos los usuarios
+    getAll: query([], Vec(User), () => {
+        return usuarios.values();
+    }),
+    // Función para obtener usuarios filtrados por tipoAu
+    getAllfil: query([], Vec(GetAllFilResponse), () => {
+        return usuarios.values().filter((usuario) => {
+            return usuario.tipoAu === "1";
+        }).map(({ username, tipoAu }) => ({ username, tipoAu }));
+    }),
+    // Función para obtener usuarios filtrados por aptitud
+    getAptitude: query([text], Vec(GetAllAptitudResponse), (aptitud) => {
+        return usuarios.values().filter((usuario) => {
+            return usuario.aptitudes.includes(aptitud);
+        }).map(({ username, aptitudes }) => ({ username, aptitudes }));
+    })
+});
+
+// Función para generar un Principal aleatorio
+function generatePrincipal(): Principal {
+    const randomBytes = new Array(29)
+        .fill(0)
+        .map((_) => Math.floor(Math.random() * 256));
+
+    return Principal.fromUint8Array(Uint8Array.from(randomBytes));
+}
+
+// Función para identificar coincidencias en tipos de autismo
+function identificarCoincidencias(tipoAu: string): string {
+    if (tipoAu === 'X') {
+        return 'CoincidenciaX';
+    }
+
+    return 'NoCoincidencia';
+}
